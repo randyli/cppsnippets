@@ -1,0 +1,37 @@
+In g++, the warning could be reproduced too using following code:
+
+class A;
+
+void func(A *p)
+{
+        delete p;
+}
+
+int main(int argc, char **argv)
+{
+        return 0;
+}
+Warnings but no any errors:
+
+test.cpp: In function void func(A*):
+test.cpp:6: warning: possible problem detected in invocation 
+  of delete operator:
+test.cpp:4: warning: A has incomplete type
+test.cpp:2: warning: forward declaration of struct A
+test.cpp:6: note: neither the destructor nor the class-specific
+  operator delete will be called, even if they are declared
+  when the class is defined.
+While g++ states very clear here that destructor will not be called because it doesn't know whether needs a destructor or not, or where is the destructor.
+
+In this case delete() downgrates to the C call free(), that is, it just free the object memory itself, but any heap data allocated by the object itself internally (e.g., in constructor) will be keeped, the same behavior as free(p).
+
+Solution:
+
+    template <typename T> inline void deleteOwnedPtr(T* ptr)
+    {
+        typedef char known[sizeof(T) ? 1 : -1];
+        if (sizeof(known))
+            delete ptr;
+    }
+    
+If we delete a pointer and the object has incomplete type, we get undefined behavior. Instead this code causes compilation to fail if the object has incomplete type. The use of a negative number for the size of an array is a way to guarantee we get a compilation error.
